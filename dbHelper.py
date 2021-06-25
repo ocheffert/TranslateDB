@@ -1,18 +1,34 @@
 import sqlite3
 from translator import Translator
+from mysql.connector import connect, Error
+from getpass import getpass
 
 
 class DBHelper:
-    def __init__(self, dbName: str):
+    def __init__(self, dbName: str = None, host: str = None, user: str = None):
         """Constructor of DBHelper which is the only class to access the database.
             Changing the database system only require to change this class.
 
         Args:
             dbName (str): database name.
         """
-        self.__connection = sqlite3.connect(dbName)
-        self.__cursor = self.__connection.cursor()
-        self.__execute = self.__cursor.execute
+        if dbName is not None:
+            self.__connection = sqlite3.connect(dbName)
+            self.__cursor = self.__connection.cursor()
+            self.__execute = self.__cursor.execute
+        else:
+            try:
+                self.__connection = connect(
+                    host=host,
+                    user=user,
+                    password=getpass("Enter your password: ")
+                )
+            except Error:
+                print("Connection error, the connection to the sql db has failed")
+                print("Rerun the code with valids hostname/username/password")
+                exit(-1)
+            self.__cursor = self.__connection.cursor()
+            self.__execute = self.__cursor.execute
         # self.create_test_db()
 
     def create_test_db(self):
