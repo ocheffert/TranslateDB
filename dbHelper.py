@@ -1,18 +1,22 @@
 import sqlite3
+from mysql.connector.connection import MySQLConnection
+from mysql.connector.pooling import PooledMySQLConnection
 from translator import Translator
 from mysql.connector import connect, Error
 from getpass import getpass
 
 
 class DBHelper:
-    def __init__(self, dbName: str = None, host: str = None, user: str = None):
-        """Constructor of DBHelper which is the only class to access the database.
-            Changing the database system only require to change this class.
+    def __init__(self, dbName: str, host: str = None, user: str = None):
+        """Constrcutor of the interface between code and db.
+            Your SQL password will be asked in terminal for security reasons (if you are not using sqlite).
 
         Args:
-            dbName (str): database name.
+            dbName (str): name of the database (add the ".db" at the end if you are using a sqlite db)
+            host (str, optional): hostname (None if you are using sqlite). Defaults to None.
+            user (str, optional): username (None if you are using sqlite). Defaults to None.
         """
-        if dbName is not None:
+        if host is None:
             self.__connection = sqlite3.connect(dbName)
             self.__cursor = self.__connection.cursor()
             self.__execute = self.__cursor.execute
@@ -21,7 +25,8 @@ class DBHelper:
                 self.__connection = connect(
                     host=host,
                     user=user,
-                    password=getpass("Enter your password: ")
+                    password=getpass("Enter your password: "),
+                    database=dbName
                 )
             except Error:
                 print("Connection error, the connection to the sql db has failed")
@@ -32,7 +37,7 @@ class DBHelper:
         # self.create_test_db()
 
     def create_test_db(self):
-        """Create an example of supported database
+        """Create an example of supported database for SQLITE not SQL
         """
         self.__execute("CREATE TABLE traduction (id INTEGER PRIMARY KEY AUTOINCREMENT, french TEXT, english TEXT, translator TEXT)")
         self.__execute("INSERT INTO traduction (french) VALUES ('Bonjour'), ('traduire c est compliqué'), ('ouais l ordi le fait mieux')")
@@ -44,12 +49,17 @@ class DBHelper:
         Returns:
             [(int, str)]: list of tuples of id and french text to be translated
         """
-        # note that while converting a mysql db to a sqlite db, the field english becomes the string 'NULL' and not NULL
-        # if your empty english fields are set to NULL and not 'NULL' please use the following commented line
-        return self.__execute("SELECT id, french FROM traduction WHERE english IS NULL").fetchall()
-        # note also that the render of a db way be confusing between 'NULL' and NULL, the best way to see which line has to be use
-        # is by printing the length of the returned list, if this is 0 this might mean that you have to use the oter one.
-        # return self.__execute("SELECT id, french FROM traduction WHERE english IS 'NULL'").fetchall()
+        # IF SQL
+        if isinstance(self.__connection, MySQLConnection) or isinstance(self.__connection, PooledMySQLConnection):
+            self.__execute("SELECT id, french FROM traduction WHERE english IS NULL")
+            return self.__cursor.fetchall()
+        else:  # ELSE SQLITE
+            # note that while converting a mysql db to a sqlite db, the field english becomes the string 'NULL' and not NULL
+            # if your empty english fields are set to NULL and not 'NULL' please use the following commented line
+            return self.__execute("SELECT id, french FROM traduction WHERE english IS NULL").fetchall()
+            # note also that the render of a db way be confusing between 'NULL' and NULL, the best way to see which line has to be use
+            # is by printing the length of the returned list, if this is 0 this might mean that you have to use the oter one.
+            # return self.__execute("SELECT id, french FROM traduction WHERE english IS 'NULL'").fetchall()
 
     def set_translation(self, id: int, translatedWord: str, translator: str):
         """Set the field english in db with the translation
